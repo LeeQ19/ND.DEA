@@ -7,7 +7,7 @@ df.f.2d <- read.csv(url("https://docs.google.com/spreadsheets/d/e/2PACX-1vSaNq2L
 df.f.3d <- simplify2array(by(df.f.2d[, -c(1)], df.f.2d$YEAR, as.matrix))
 
 # source("nd.dea.nlp.neos.R")
-# ANTIGONE, BARON, CONOPT, Couenne, DICOPT, Ipopt, Knitro, LINDOGlobal, MINOS, PATHNLP, SBB, SNOPT
+# Engine = c("ANTIGONE", "BARON", "CONOPT", "Couenne", "DICOPT", "Ipopt", "Knitro", "LINDOGlobal", "MINOS", "PATHNLP", "SBB", "SNOPT")
 # res.nd.nlp <- nd.dea.nlp(df.f.3d[, id.xr, ], df.f.3d[, id.xt, ], df.f.3d[, id.yr, ], df.f.3d[, id.yt, ], df.f.3d[, id.z, ], engine = "DICOPT")
 load("res.nlp.Rdata")
 
