@@ -120,25 +120,43 @@ pkgs <- c("ROI", "ROI.plugin.glpk", "CVXR", "slam")
 sapply(pkgs, require, character.only = T)
 
 # Load data
-df.f.2d <- read.csv(url("https://docs.google.com/spreadsheets/d/e/2PACX-1vSaNq2LrKyvSWG2pisX4QnJw8ui7lj2lfQ4SVzwfFY5tl2BWf1AS5ORIfy1544dCNvfpAr8McUMiJk_/pub?output=csv"), header = T)
-df.f.3d <- simplify2array(by(df.f.2d[, -c(1)], df.f.2d$YEAR, as.matrix))
+df.f.2d <- read.csv("Dataset_ToyData.csv", header = T)
+df.f.3d <- simplify2array(by(df.f.2d[, -c(1)], df.f.2d$t, as.matrix))
 
 # Parameter
 id.t <- c(1)
-id.xr <- c(2, 13)
-id.xt <- c(4, 11)
-id.yr <- c(5, 6)
-id.yt <- c(9)
-id.z <- c(7)
+id.x1 <- c(2)
+id.x2 <- c(5)
+id.y1 <- c(3)
+id.y2 <- c(6)
+id.z <- c(4)
+id.zl <- c(7)
 rts  <- "crs"
 orientation  <- "i"
 wv <- NULL
+engine <- "IPOPT"
 
-x1data <- df.f.3d[, id.xr, ]
-x2data <- df.f.3d[, id.xt, ]
-y1data <- df.f.3d[, id.yr, ]
-y2data <- df.f.3d[, id.yt, ]
+res.toy <- nd.dea.nlp(df.f.3d[, id.x1, ], df.f.3d[, id.x2, ], df.f.3d[, id.y1, ], df.f.3d[, id.y2, ], df.f.3d[, id.z, ], df.f.3d[, id.zl, ], engine = "IPOPT")
+res.toy$eff.t
+
+write.csv(res.toy$eff.t, file = "res.toy.eff.csv")
+write.csv(res.toy$lambda1, file = "res.toy.lambda1.csv")
+write.csv(res.toy$lambda2, file = "res.toy.lambda2.csv")
+write.csv(res.toy$z21data, file = "res.toy.z21data.csv")
+write.csv(res.toy$z22data, file = "res.toy.z22data.csv")
+write.csv(res.toy$x1slack, file = "res.toy.x1slack.csv")
+write.csv(res.toy$x2slack, file = "res.toy.x2slack.csv")
+write.csv(res.toy$y1slack, file = "res.toy.y1slack.csv")
+write.csv(res.toy$y2slack, file = "res.toy.y2slack.csv")
+write.csv(res.toy$z1slack, file = "res.toy.z1slack.csv")
+write.csv(res.toy$z2slack, file = "res.toy.z2slack.csv")
+
+x1data <- df.f.3d[, id.x1, ]
+x2data <- df.f.3d[, id.x2, ]
+y1data <- df.f.3d[, id.y1, ]
+y2data <- df.f.3d[, id.y2, ]
 zdata  <- df.f.3d[, id.z, ]
+zlower <- df.f.3d[, id.zl, ]
 
 make.l <- function (xt, indices, len = p.end - 1) {
   l <- rep(0, len)
@@ -161,11 +179,6 @@ make.l <- function (xt, indices, len = p.end - 1) {
   } else {
     as.array(x2data)
   }
-  y1data <- if (length(dim(y1data)) != 3) {
-    array(y1data, c(dim(y1data)[1], 1, dim(y1data)[2]))
-  } else {
-    as.array(y1data)
-  }
   y2data <- if (length(dim(y2data)) != 3) {
     array(y2data, c(dim(y2data)[1], 1, dim(y2data)[2]))
   } else {
@@ -176,11 +189,15 @@ make.l <- function (xt, indices, len = p.end - 1) {
   } else {
     as.array(zdata)
   }
+  zlower <- if (length(dim(zlower)) != 3) {
+    array(zlower, c(dim(zlower)[1], 1, dim(zlower)[2]))
+  } else {
+    as.array(zlower)
+  }
   
   n  <- dim(x1data)[1]
   m1 <- dim(x1data)[2]
   m2 <- dim(x2data)[2]
-  s1 <- dim(y1data)[2]
   s2 <- dim(y2data)[2]
   b  <- dim(zdata)[2]
   t  <- dim(x1data)[3]
@@ -199,7 +216,6 @@ make.l <- function (xt, indices, len = p.end - 1) {
   results.z22data <- array(NA, dim = c(n, n, b, t), dimnames = list(names, names, paste0("z22data.", 1:b)))
   results.x1slack <- array(NA, dim = c(n, m1, t), dimnames = list(names, paste0("x1slack.", 1:m1)))
   results.x2slack <- array(NA, dim = c(n, m2, t), dimnames = list(names, paste0("x2slack.", 1:m2)))
-  results.y1slack <- array(NA, dim = c(n, s1, t), dimnames = list(names, paste0("y1slack.", 1:s1)))
   results.y2slack <- array(NA, dim = c(n, s2, t), dimnames = list(names, paste0("y2slack.", 1:s2)))
   results.z1slack <- array(NA, dim = c(n, b, t), dimnames = list(names, paste0("z1slack.", 1:b)))
   results.z2slack <- array(NA, dim = c(n, b, t), dimnames = list(names, paste0("z2slack.", 1:b)))
@@ -210,114 +226,165 @@ make.l <- function (xt, indices, len = p.end - 1) {
   p.z22 <- n * t + n * t + t + n * b * t + 1
   p.x1s <- n * t + n * t + t + n * b * t + n * b * t + 1
   p.x2s <- n * t + n * t + t + n * b * t + n * b * t + m1 * t + 1
-  p.y1s <- n * t + n * t + t + n * b * t + n * b * t + m1 * t + m2 * t + 1
-  p.y2s <- n * t + n * t + t + n * b * t + n * b * t + m1 * t + m2 * t + s1 * t + 1
-  p.z1s <- n * t + n * t + t + n * b * t + n * b * t + m1 * t + m2 * t + s1 * t + s2 * t + 1
-  p.z2s <- n * t + n * t + t + n * b * t + n * b * t + m1 * t + m2 * t + s1 * t + s2 * t + b * t + 1
-  p.end <- n * t + n * t + t + n * b * t + n * b * t + m1 * t + m2 * t + s1 * t + s2 * t + b * t + b * t + 1
+  p.y2s <- n * t + n * t + t + n * b * t + n * b * t + m1 * t + m2 * t + 1
+  p.z1s <- n * t + n * t + t + n * b * t + n * b * t + m1 * t + m2 * t + s2 * t + 1
+  p.z2s <- n * t + n * t + t + n * b * t + n * b * t + m1 * t + m2 * t + s2 * t + b * t + 1
+  p.wrs <- n * t + n * t + t + n * b * t + n * b * t + m1 * t + m2 * t + s2 * t + b * t + b * t + 1
+  p.end <- n * t + n * t + t + n * b * t + n * b * t + m1 * t + m2 * t + s2 * t + b * t + b * t + n * b * t + 1
   
-  if (orientation == "i") 
-    obj <- c(rep(0, p.eff - 1), wv, rep(0, p.end - p.z21))
-  if (orientation == "o") 
-    obj <- c(rep(0, p.eff - 1), -wv, rep(0, p.end - p.z21))
-  
-  Q <- NULL
-  L <- NULL
-  rhs <- NULL
-  
-  for (k in 1:t) {
-    if (orientation == "i") {
-      for (i in 1:m1) {
-        Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
-        L <- rbind(L, make.l(c(x1data[, i, k], -x1data[j, i, k], 1), indices = c(((k - 1) * n + 1):(k * n), p.eff - 1 + k, p.x1s - 1 + m1 * (k - 1) + i)))
-        rhs <- c(rhs, 0)
-      }
-      for (i in 1:m2) {
-        Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
-        L <- rbind(L, make.l(c(x2data[, i, k], -x2data[j, i, k], 1), indices = c((p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n), p.eff - 1 + k, p.x2s - 1 + m2 * (k - 1) + i)))
-        rhs <- c(rhs, 0)
-      }
-      for (r in 1:s1) {
-        Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
-        L <- rbind(L, make.l(c(y1data[, r, k], -1), indices = c(((k - 1) * n + 1):(k * n), p.y1s - 1 + s1 * (k - 1) + r)))
-        rhs <- c(rhs, y1data[j, r, k])
-      }
-      for (r in 1:s2) {
-        Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
-        L <- rbind(L, make.l(c(y2data[, r, k], -1), indices = c((p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n), p.y2s - 1 + s2 * (k - 1) + r)))
-        rhs <- c(rhs, y2data[j, r, k])
-      }
-    }
-    else {
-      for (i in 1:m1) {
-        Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
-        L <- rbind(L, make.l(c(x1data[, i, k], 1), indices = c(((k - 1) * n + 1):(k * n), p.x1s - 1 + m1 * (k - 1) + i)))
-        rhs <- c(rhs, x1data[j, i, k])
-      }
-      for (i in 1:m2) {
-        Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
-        L <- rbind(L, make.l(c(x2data[, i, k], 1), indices = c((p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n), p.x2s - 1 + m2 * (k - 1) + i)))
-        rhs <- c(rhs, x2data[j, i, k])
-      }
-      for (r in 1:s1) {
-        Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
-        L <- rbind(L, make.l(c(y1data[, r, k], -y1data[j, r, k], -1), indices = c(((k - 1) * n + 1):(k * n), p.eff - 1 + k, p.y1s - 1 + s1 * (k - 1) + r)))
-        rhs <- c(rhs, 0)
-      }
-      for (r in 1:s2) {
-        Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
-        L <- rbind(L, make.l(c(y2data[, r, k], -y2data[j, r, k], -1), indices = c((p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n), p.eff - 1 + k, p.y2s - 1 + s2 * (k - 1) + r)))
-        rhs <- c(rhs, 0)
-      }
-    }
-    for (l in 1:b) {
-      Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
-      L <- rbind(L, make.l(c(zdata[, l, k], -1), indices = c(((k - 1) * n + 1):(k * n), p.z1s - 1 + b * (k - 1) + l)))
-      rhs <- c(rhs, zdata[j, l, k])
-      
-      if (k == 1) {
-        Q <- append(Q, list(simple_triplet_matrix(i = c(1:(p.end - 1), (p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n)), 
-                                                  j = c(1:(p.end - 1), (p.z21 + n * b * (k - 1) + n * (l - 1)):(p.z21 - 1 + n * b * (k - 1) + n * l)), 
-                                                  c(rep(0, p.end - 1), rep(2, n)))))
-        L <- rbind(L, make.l(c(-1, 1), indices = c(p.z21 - 1 + n * b * (k - 1) + n * (l - 1) + j, p.z2s - 1 + b * (k - 1) + l)))
-        rhs <- c(rhs, 0)
+  for (j in 1:n) {
+    if (orientation == "i") 
+      obj <- make.l(c(wv), indices = c(p.eff:(p.z21 - 1)), p.end - 1)
+    if (orientation == "o") 
+      obj <- make.l(c(-wv), indices = c(p.eff:(p.z21 - 1)), p.end - 1)
+    
+    Q <- NULL
+    L <- NULL
+    dir <- NULL
+    rhs <- NULL
+    
+    for (k in 1:t) {
+      if (orientation == "i") {
+        for (i in 1:m1) {
+          Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
+          L <- rbind(L, make.l(c(x1data[, i, k], -x1data[j, i, k], 1), indices = c(((k - 1) * n + 1):(k * n), p.eff - 1 + k, p.x1s - 1 + m1 * (k - 1) + i), p.end - 1))
+          dir <- append(dir, "==")
+          rhs <- c(rhs, 0)
+        }
+        for (i in 1:m2) {
+          Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
+          L <- rbind(L, make.l(c(x2data[, i, k], -x2data[j, i, k], 1), indices = c((p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n), p.eff - 1 + k, p.x2s - 1 + m2 * (k - 1) + i), p.end - 1))
+          dir <- append(dir, "==")
+          rhs <- c(rhs, 0)
+        }
+        for (r in 1:s2) {
+          Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
+          L <- rbind(L, make.l(c(y2data[, r, k], -1), indices = c((p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n), p.y2s - 1 + s2 * (k - 1) + r), p.end - 1))
+          dir <- append(dir, "==")
+          rhs <- c(rhs, y2data[j, r, k])
+        }
       }
       else {
-        Q <- append(Q, list(simple_triplet_matrix(i = c(1:(p.end - 1), (p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n), (p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n)), 
-                                                  j = c(1:(p.end - 1), (p.z21 + n * b * (k - 1) + n * (l - 1)):(p.z21 - 1 + n * b * (k - 1) + n * l), (p.z22 + n * b * (k - 2) + n * (l - 1)):(p.z22 - 1 + n * b * (k - 2) + n * l)), 
-                                                  c(rep(0, p.end - 1), rep(2, n), rep(2, n)))))
-        L <- rbind(L, make.l(c(-1, -1, 1), indices = c(p.z21 - 1 + n * b * (k - 1) + n * (l - 1) + j, p.z22 + n * b * (k - 2) + n * (l - 1) + j, p.z2s - 1 + b * (k - 1) + l)))
+        for (i in 1:m1) {
+          Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
+          L <- rbind(L, make.l(c(x1data[, i, k], 1), indices = c(((k - 1) * n + 1):(k * n), p.x1s - 1 + m1 * (k - 1) + i), p.end - 1))
+          dir <- append(dir, "==")
+          rhs <- c(rhs, x1data[j, i, k])
+        }
+        for (i in 1:m2) {
+          Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
+          L <- rbind(L, make.l(c(x2data[, i, k], 1), indices = c((p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n), p.x2s - 1 + m2 * (k - 1) + i), p.end - 1))
+          dir <- append(dir, "==")
+          rhs <- c(rhs, x2data[j, i, k])
+        }
+        for (r in 1:s2) {
+          Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
+          L <- rbind(L, make.l(c(y2data[, r, k], -y2data[j, r, k], -1), indices = c((p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n), p.eff - 1 + k, p.y2s - 1 + s2 * (k - 1) + r), p.end - 1))
+          dir <- append(dir, "==")
+          rhs <- c(rhs, 0)
+        }
+      }
+      for (l in 1:b) {
+        Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
+        L <- rbind(L, make.l(c(zdata[, l, k], -1), indices = c(((k - 1) * n + 1):(k * n), p.z1s - 1 + b * (k - 1) + l), p.end - 1))
+        dir <- append(dir, "==")
+        rhs <- c(rhs, zdata[j, l, k])
+        
+        if (k == 1) {
+          Q <- append(Q, list(simple_triplet_matrix(i = c(1:(p.end - 1), (p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n)), 
+                                                    j = c(1:(p.end - 1), (p.z21 + n * b * (k - 1) + n * (l - 1)):(p.z21 - 1 + n * b * (k - 1) + n * l)), 
+                                                    c(rep(0, p.end - 1), rep(2, n)))))
+          L <- rbind(L, make.l(c(-1, 1), indices = c(p.z21 - 1 + n * (l - 1) + j, p.z2s - 1 + b * (k - 1) + l), p.end - 1))
+          dir <- append(dir, "==")
+          rhs <- c(rhs, 0)
+        }
+        else {
+          Q <- append(Q, list(simple_triplet_matrix(i = c(1:(p.end - 1), (p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n), (p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n)), 
+                                                    j = c(1:(p.end - 1), (p.z21 + n * b * (k - 1) + n * (l - 1)):(p.z21 - 1 + n * b * (k - 1) + n * l), (p.z22 + n * b * (k - 2) + n * (l - 1)):(p.z22 - 1 + n * b * (k - 2) + n * l)), 
+                                                    c(rep(0, p.end - 1), rep(2, n), rep(2, n)))))
+          L <- rbind(L, make.l(c(-1, -1, 1), indices = c(p.z21 - 1 + n * b * (k - 1) + n * (l - 1) + j, p.z22 + n * b * (k - 2) + n * (l - 1) + j, p.z2s - 1 + b * (k - 1) + l), p.end - 1))
+          dir <- append(dir, "==")
+          rhs <- c(rhs, 0)
+        }
+        for (h in 1:n) {
+          Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
+          L <- rbind(L, make.l(c(1, 1), indices = c(c(p.z21, p.z22) - 1 + n * b * (k - 1) + n * (l - 1) + h), p.end - 1))
+          dir <- append(dir, "==")
+          rhs <- c(rhs, zdata[h, l, k])
+          
+          if (k == 1) {
+            Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
+            L <- rbind(L, make.l(c(1, -1), indices = c(p.z21 - 1 + n * (l - 1) + h, p.wrs - 1 +  n * (l - 1) + h), p.end - 1))
+            dir <- append(dir, "==")
+            rhs <- c(rhs, zlower[h, l, 1])
+          }
+          else {
+            Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
+            L <- rbind(L, make.l(c(1, 1, -1), indices = c(p.z21 - 1 + n * b * (k - 1) + n * (l - 1) + h, p.z22 + n * b * (k - 2) + n * (l - 1) + h, p.wrs - 1 + n * b * (k - 1) + n * (l - 1) + h), p.end - 1))
+            dir <- append(dir, "==")
+            rhs <- c(rhs, zlower[h, l, k])
+          }
+        }
+      }
+    }
+    for (h in 1:n) {
+      for (l in 1:b) {
+        Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
+        L <- rbind(L, make.l(c(1), indices = c(p.z22 - 1 + n * b * (t - 1) + n * (l - 1) + h), p.end - 1))
+        dir <- append(dir, "==")
         rhs <- c(rhs, 0)
       }
-      
-      for (h in 1:n) {
-        Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
-        L <- rbind(L, make.l(c(1, 1), indices = c(c(p.z21, p.z22) - 1 + n * b * (k - 1) + n * (l - 1) + h)))
-        rhs <- c(rhs, zdata[h, l, k])
-      }
     }
+    cnst <- Q_constraint(Q = Q, L = L, dir = dir, rhs = rhs)
+    op <- OP(obj, cnst)
+    res <- ROI_solve(op, solver = "neos", method = engine)
+    results.efficiency.s[j] <- abs(res$objval)/sum(wv)
+    temp.p <- res$solution
+    results.lambda1[j, , ]    <- array(temp.p[1:(p.lm2 - 1)], c(n, t))
+    results.lambda2[j, , ]    <- array(temp.p[p.lm2:(p.eff - 1)], c(n, t))
+    results.efficiency.t[j, ] <- temp.p[p.eff:(p.z21 - 1)]
+    results.z21data[j, , , ]  <- array(temp.p[p.z21:(p.z22 - 1)], c(n, b, t))
+    results.z22data[j, , , ]  <- array(temp.p[p.z22:(p.x1s - 1)], c(n, b, t))
+    results.x1slack[j, , ]    <- array(temp.p[p.x1s:(p.x2s - 1)], c(m1, t))
+    results.x2slack[j, , ]    <- array(temp.p[p.x2s:(p.y2s - 1)], c(m2, t))
+    results.y2slack[j, , ]    <- array(temp.p[p.y2s:(p.z1s - 1)], c(s2, t))
+    results.z1slack[j, , ]    <- array(temp.p[p.z1s:(p.z2s - 1)], c(b, t))
+    results.z2slack[j, , ]    <- array(temp.p[p.z2s:(p.end - 1)], c(b, t))
+    
+    # Stage II
+    # obj <- make.l(c(rep(1, p.end - p.z2s)), indices = c(p.z2s:(p.end - 1)), p.end - 1)
+    # 
+    # for (k in 1:t) {
+    #   Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
+    #   L <- rbind(L, make.l(c(1), indices = c(p.eff - 1 + t)), p.end - 1)
+    #   dir <- append(dir, "==")
+    #   rhs <- c(rhs, results.efficiency.t[j, t])
+    # }
+    # cnst <- Q_constraint(Q = Q, L = L, dir = dir, rhs = rhs)
+    # op <- OP(obj, cnst)
+    # res <- ROI_solve(op, solver = "neos", method = engine)
+    # temp.p <- res$solution
+    # results.lambda1[j, , ]    <- array(temp.p[1:(p.lm2 - 1)], c(n, t))
+    # results.lambda2[j, , ]    <- array(temp.p[p.lm2:(p.eff - 1)], c(n, t))
+    # results.efficiency.t[j, ] <- temp.p[p.eff:(p.z21 - 1)]
+    # results.z21data[j, , , ]  <- array(temp.p[p.z21:(p.z22 - 1)], c(n, b, t))
+    # results.z22data[j, , , ]  <- array(temp.p[p.z22:(p.x1s - 1)], c(n, b, t))
+    # results.x1slack[j, , ]    <- array(temp.p[p.x1s:(p.x2s - 1)], c(m1, t))
+    # results.x2slack[j, , ]    <- array(temp.p[p.x2s:(p.y1s - 1)], c(m2, t))
+    # results.y1slack[j, , ]    <- array(temp.p[p.y1s:(p.y2s - 1)], c(s1, t))
+    # results.y2slack[j, , ]    <- array(temp.p[p.y2s:(p.z1s - 1)], c(s2, t))
+    # results.z1slack[j, , ]    <- array(temp.p[p.z1s:(p.z2s - 1)], c(b, t))
+    # results.z2slack[j, , ]    <- array(temp.p[p.z2s:(p.end - 1)], c(b, t))
   }
-  for (h in 1:n) {
-    for (l in 1:b) {
-      Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
-      L <- rbind(L, make.l(c(1), indices = c(p.z22 - 1 + n * b * (t - 1) + n * (l - 1) + h)))
-      rhs <- c(rhs, 0)
-    }
-  }
-  cnst <- Q_constraint(Q = Q, L = L, dir = eq(length(rhs)), rhs = rhs)
-  op <- OP(obj, cnst)
-  res <- ROI_solve(op, solver = "neos", method = "ANTIGONE")
-  results.efficiency.s[j] <- abs(res$objval)/sum(wv)
-  temp.p <- res$solution
-  results.lambda1[j, , ]    <- array(temp.p[1:(p.lm2 - 1)], c(n, t))
-  results.lambda2[j, , ]    <- array(temp.p[p.lm2:(p.eff - 1)], c(n, t))
-  results.efficiency.t[j, ] <- temp.p[p.eff:(p.z21 - 1)]
-  results.z21data[j, , , ]  <- array(temp.p[p.z21:(p.z22 - 1)], c(n, b, t))
-  results.z22data[j, , , ]  <- array(temp.p[p.z22:(p.x1s - 1)], c(n, b, t))
-  results.x1slack[j, , ]    <- array(temp.p[p.x1s:(p.x2s - 1)], c(m1, t))
-  results.x2slack[j, , ]    <- array(temp.p[p.x2s:(p.y1s - 1)], c(m2, t))
-  results.y1slack[j, , ]    <- array(temp.p[p.y1s:(p.y2s - 1)], c(s1, t))
-  results.y2slack[j, , ]    <- array(temp.p[p.y2s:(p.z1s - 1)], c(s2, t))
-  results.z1slack[j, , ]    <- array(temp.p[p.z1s:(p.z2s - 1)], c(b, t))
-  results.z2slack[j, , ]    <- array(temp.p[p.z2s:(p.end - 1)], c(b, t))
+  results <- list(eff.s = results.efficiency.s, 
+                  eff.t = results.efficiency.t, 
+                  lambda1 = results.lambda1, 
+                  lambda2 = results.lambda2,
+                  z21data = results.z21data, 
+                  z22data = results.z22data, 
+                  x1slack = results.x1slack, 
+                  x2slack = results.x2slack, 
+                  y2slack = results.y2slack, 
+                  z1slack = results.z1slack, 
+                  z2slack = results.z2slack)
 }
