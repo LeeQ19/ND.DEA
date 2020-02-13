@@ -18,6 +18,7 @@ rts  <- "crs"
 orientation  <- "i"
 wv <- NULL
 engine <- "Ipopt"
+j <- 1
 
 x1data <- df.f.3d[, id.x1, ]
 x2data <- df.f.3d[, id.x2, ]
