@@ -1,6 +1,8 @@
 #########################################################################################################################
 ### Project  : Network DEA with malmquist for research institutes
 #########################################################################################################################
+# Load library
+source("nd.dea.nlp.neos.R")
 
 # Load data
 df.f.2d <- read.csv(url("https://docs.google.com/spreadsheets/d/e/2PACX-1vSaNq2LrKyvSWG2pisX4QnJw8ui7lj2lfQ4SVzwfFY5tl2BWf1AS5ORIfy1544dCNvfpAr8McUMiJk_/pub?output=csv"), header = T)
@@ -17,22 +19,13 @@ id.zl <- c(14)
 rts  <- "crs"
 orientation  <- "i"
 wv <- NULL
-engine <- "Ipopt"
-j <- 1
-
-x1data <- df.f.3d[, id.x1, ]
-x2data <- df.f.3d[, id.x2, ]
-y1data <- df.f.3d[, id.y1, ]
-y2data <- df.f.3d[, id.y2, ]
-zdata  <- df.f.3d[, id.z, ]
-zlower <- df.f.3d[, id.zl, ]
+engine <- "ANTIGONE"
 
 # Measure efficiency
-source("nd.dea.nlp.neos.R")
 # Engine = c("ANTIGONE", "BARON", "CONOPT", "Ipopt", "Knitro", "LINDOGlobal", "MINOS", "PATHNLP", "SBB", "SNOPT")
-res.nd.nlp <- nd.dea.nlp(df.f.3d[, id.x1, ], df.f.3d[, id.x2, ], df.f.3d[, id.y1, ], df.f.3d[, id.y2, ], df.f.3d[, id.z, ], df.f.3d[, id.zl, ], engine = "Ipopt")
+res.nd.nlp <- nd.dea.nlp(df.f.3d[, id.x1, ], df.f.3d[, id.x2, ], df.f.3d[, id.y1, ], df.f.3d[, id.y2, ], df.f.3d[, id.z, ], df.f.3d[, id.zl, ], engine = engine)
 # load("res.nlp.Rdata")
 
-write.csv(res.nd.nlp$eff.t, file = "testeff.SBB.csv")
-write.csv(res.nd.nlp$z21data, file = "test21.SBB.csv")
-write.csv(res.nd.nlp$z22data, file = "test22.SBB.csv")
+write.csv(res.nd.nlp, file = paste0(engine, ".csv"))
+write.csv(res.nd.nlp$z21data, file = "test21.Ipopt.csv")
+write.csv(res.nd.nlp$z22data, file = "test22.Ipopt.csv")

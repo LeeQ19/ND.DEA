@@ -134,12 +134,14 @@ id.zl <- c(7)
 rts  <- "crs"
 orientation  <- "i"
 wv <- NULL
-engine <- "IPOPT"
-j <- 3
+engine <- "ANTIGONE"
 
 x1data <- df.f.3d[, id.x1, ]
 x2data <- df.f.3d[, id.x2, ]
 y1data <- df.f.3d[, id.y1, ]
 y2data <- df.f.3d[, id.y2, ]
-zdata  <- df.f.3d[, id.z, ]
+zdata <- df.f.3d[, id.z, ]
 zlower <- df.f.3d[, id.zl, ]
+
+res.nd.toy <- nd.dea.nlp(df.f.3d[, id.x1, ], df.f.3d[, id.x2, ], df.f.3d[, id.y1, ], df.f.3d[, id.y2, ], df.f.3d[, id.z, ], df.f.3d[, id.zl, ], engine = engine)
+write.csv(res.nd.toy, file = "res.toy.csv")

@@ -160,10 +160,10 @@ for (k in 1:t) {
     dir <- append(dir, "==")
     rhs <- c(rhs, zdata[j, l, k])
     cat <- append(cat, paste0("z1^", k, "_", l))
-    
+
     if (k == 1) {
-      Q <- append(Q, list(simple_triplet_matrix(i = c(1:(p.end - 1), (p.lm2):(p.lm2 - 1 + n)), 
-                                                j = c(1:(p.end - 1), (p.z21 + n * (l - 1)):(p.z21 - 1 + n * l)), 
+      Q <- append(Q, list(simple_triplet_matrix(i = c(1:(p.end - 1), (p.lm2):(p.lm2 - 1 + n)),
+                                                j = c(1:(p.end - 1), (p.z21 + n * (l - 1)):(p.z21 - 1 + n * l)),
                                                 c(rep(0, p.end - 1), rep(2, n)))))
       L <- rbind(L, make.l(c(-1, 1), indices = c(p.z21 - 1 + n * (l - 1) + j, p.z2s - 1 + l), p.end - 1))
       dir <- append(dir, "==")
@@ -171,10 +171,10 @@ for (k in 1:t) {
       cat <- append(cat, paste0("z2^", k, "_", l))
     }
     else {
-      Q <- append(Q, list(simple_triplet_matrix(i = c(1:(p.end - 1), (p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n), (p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n)), 
-                                                j = c(1:(p.end - 1), (p.z21 + n * b * (k - 1) + n * (l - 1)):(p.z21 - 1 + n * b * (k - 1) + n * l), (p.z22 + n * b * (k - 2) + n * (l - 1)):(p.z22 - 1 + n * b * (k - 2) + n * l)), 
+      Q <- append(Q, list(simple_triplet_matrix(i = c(1:(p.end - 1), (p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n), (p.lm2 + (k - 1) * n):(p.lm2 - 1 + k * n)),
+                                                j = c(1:(p.end - 1), (p.z21 + n * b * (k - 1) + n * (l - 1)):(p.z21 - 1 + n * b * (k - 1) + n * l), (p.z22 + n * b * (k - 2) + n * (l - 1)):(p.z22 - 1 + n * b * (k - 2) + n * l)),
                                                 c(rep(0, p.end - 1), rep(2, n), rep(2, n)))))
-      L <- rbind(L, make.l(c(-1, -1, 1), indices = c(p.z21 - 1 + n * b * (k - 1) + n * (l - 1) + j, p.z22 + n * b * (k - 2) + n * (l - 1) + j, p.z2s - 1 + b * (k - 1) + l), p.end - 1))
+      L <- rbind(L, make.l(c(-1, -1, 1), indices = c(p.z21 - 1 + n * b * (k - 1) + n * (l - 1) + j, p.z22 - 1 + n * b * (k - 2) + n * (l - 1) + j, p.z2s - 1 + b * (k - 1) + l), p.end - 1))
       dir <- append(dir, "==")
       rhs <- c(rhs, 0)
       cat <- append(cat, paste0("z2^", k, "_", l))
@@ -185,7 +185,7 @@ for (k in 1:t) {
       dir <- append(dir, "==")
       rhs <- c(rhs, zdata[h, l, k])
       cat <- append(cat, paste0("zsum^", k, "_", l, ",", h))
-      
+
       if (k == 1) {
         Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
         L <- rbind(L, make.l(c(1, -1), indices = c(p.z21 - 1 + n * (l - 1) + h, p.wrs - 1 +  n * (l - 1) + h), p.end - 1))
@@ -195,7 +195,7 @@ for (k in 1:t) {
       }
       else {
         Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))
-        L <- rbind(L, make.l(c(1, 1, -1), indices = c(p.z21 - 1 + n * b * (k - 1) + n * (l - 1) + h, p.z22 + n * b * (k - 2) + n * (l - 1) + h, p.wrs - 1 + n * b * (k - 1) + n * (l - 1) + h), p.end - 1))
+        L <- rbind(L, make.l(c(1, 1, -1), indices = c(p.z21 - 1 + n * b * (k - 1) + n * (l - 1) + h, p.z22 - 1 + n * b * (k - 2) + n * (l - 1) + h, p.wrs - 1 + n * b * (k - 1) + n * (l - 1) + h), p.end - 1))
         dir <- append(dir, "==")
         rhs <- c(rhs, zlower[h, l, k])
         cat <- append(cat, paste0("zlower^", k, "_", l, ",", h))
@@ -214,8 +214,8 @@ for (l in 1:b) {
 }
 cnst <- Q_constraint(Q = Q, L = L, dir = dir, rhs = rhs)
 op <- OP(obj, cnst)
-res <- ROI_solve(op, solver = "neos", method = engine)
+res <- ROI_solve(op, solver = "neos", method = "IPOPT")
 
 ch <- check(op, res$solution)
-round(ch$difference, 6)
-cat[which(round(ch$difference, 6) != 0)]
+round(ch$difference, 4)
+cat[which(round(ch$difference, 4) != 0)]
