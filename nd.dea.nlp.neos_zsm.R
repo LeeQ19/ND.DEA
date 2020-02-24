@@ -227,7 +227,7 @@ nd.dea.nlp <- function (x1data, x2data, y1data, y2data, zdata, zlower = array(0,
     results.z2slack[j, , ]    <- array(temp.p[p.z2s:(p.end - 1)], c(b, t))
     
     # Stage II
-    obj <- make.l(c(rep(-1, p.end - p.z2s)), indices = c(p.z2s:(p.end - 1)), p.end - 1)
+    obj <- make.l(c(rep(-1, p.x1s - p.z22)), indices = c(p.z22:(p.x1s - 1)), p.end - 1)
 
     for (k in 1:t) {
       Q <- append(Q, list(simple_triplet_matrix(i = 1:(p.end - 1), j = 1:(p.end - 1), rep(0, p.end - 1))))

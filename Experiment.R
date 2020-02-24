@@ -2,7 +2,8 @@
 ### Project  : Network DEA with malmquist for research institutes
 #########################################################################################################################
 # Load library
-source("nd.dea.nlp.neos.R")
+source("nd.dea.nlp.neos_zsm.R")
+
 
 # Load data
 df.f.2d <- read.csv(url("https://docs.google.com/spreadsheets/d/e/2PACX-1vSaNq2LrKyvSWG2pisX4QnJw8ui7lj2lfQ4SVzwfFY5tl2BWf1AS5ORIfy1544dCNvfpAr8McUMiJk_/pub?output=csv"), header = T)
@@ -19,7 +20,7 @@ id.zl <- c(14)
 rts  <- "crs"
 orientation  <- "i"
 wv <- NULL
-engine <- "ANTIGONE"
+engine <- "Ipopt"
 
 # Measure efficiency
 # Engine = c("ANTIGONE", "BARON", "CONOPT", "Ipopt", "Knitro", "LINDOGlobal", "MINOS", "PATHNLP", "SBB", "SNOPT")
